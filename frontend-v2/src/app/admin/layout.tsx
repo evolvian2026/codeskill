@@ -6,31 +6,63 @@ import { useAuth } from "@/context/AuthContext";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 
+import { authAPI } from "@/config/api";
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, loading, updateUserLocal } = useAuth();
   const [isVerifying, setIsVerifying] = useState(true);
 
   const isLoginPage = pathname === "/admin/login";
 
   useEffect(() => {
-    if (!loading) {
+    let isMounted = true;
+
+    async function checkAuth() {
+      if (loading) return;
+
       if (isLoginPage) {
-        setIsVerifying(false);
+        if (user && user.isAdmin) {
+          router.push("/admin/dashboard");
+        } else {
+          setIsVerifying(false);
+        }
         return;
       }
 
       if (!user) {
         router.push("/admin/login");
-      } else if (!user.isAdmin) {
-        // Not an admin, redirect to user dashboard
+        return;
+      }
+
+      if (user.isAdmin) {
+        if (isMounted) setIsVerifying(false);
+        return;
+      }
+
+      // User exists but local state has isAdmin = false.
+      // Re-verify with backend in case user was recently promoted.
+      try {
+        const res = await authAPI.getMe();
+        const freshUser = res.data?.user;
+        if (freshUser && freshUser.isAdmin) {
+          updateUserLocal(freshUser);
+          if (isMounted) setIsVerifying(false);
+        } else {
+          router.push("/dashboard");
+        }
+      } catch (err) {
         router.push("/dashboard");
-      } else {
-        setIsVerifying(false);
       }
     }
-  }, [user, loading, router, isLoginPage]);
+
+    checkAuth();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user, loading, router, isLoginPage, updateUserLocal]);
 
   if (loading || isVerifying) {
     return (

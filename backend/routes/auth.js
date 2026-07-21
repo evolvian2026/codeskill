@@ -243,26 +243,40 @@ router.post("/admin-login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ success: false, message: "Provide email and password" });
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Email is required" });
     }
 
     // Normalize email to lowercase for consistent matching
     const normalizedEmail = email.trim().toLowerCase();
 
     const user = await User.findOne({ email: normalizedEmail }).select("+password");
-    if (!user || !(await user.matchPassword(password))) {
-      return res.status(401).json({ success: false, message: "Invalid credentials" });
+    if (!user) {
+      return res.status(401).json({ success: false, message: "User not found with this email" });
     }
 
     if (!user.isAdmin) {
       return res.status(403).json({ success: false, message: "Access denied. Admin only." });
     }
 
-    // Send OTP for 2FA instead of directly logging in
+    // If user has a password set, verify it
+    if (user.password) {
+      if (!password) {
+        return res.status(400).json({ success: false, message: "Password is required for this admin account" });
+      }
+      const isMatch = await user.matchPassword(password);
+      if (!isMatch) {
+        return res.status(401).json({ success: false, message: "Invalid credentials" });
+      }
+    }
+
+    // Send OTP for 2FA verification
     try {
       await sendOTP(normalizedEmail);
-      res.json({ success: true, requireOTP: true, message: "OTP sent successfully" });
+      const msg = !user.password 
+        ? "Verification OTP sent to your email (OAuth Admin Account)" 
+        : "OTP sent successfully";
+      res.json({ success: true, requireOTP: true, message: msg });
     } catch (otpError) {
       console.error(`[Admin Login] Failed to send OTP to ${normalizedEmail}:`, otpError.message);
       res.status(500).json({
@@ -304,9 +318,15 @@ router.post("/admin-login/verify", async (req, res) => {
       success: true,
       token,
       user: {
-        id: user._id, name: user.name, email: user.email, isAdmin: user.isAdmin,
-        avatar: user.avatar, bio: user.bio,
-        profile: user.profile, stats: user.stats,
+        _id: user._id,
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        isAdmin: user.isAdmin,
+        avatar: user.avatar,
+        bio: user.bio,
+        profile: user.profile,
+        stats: user.stats,
         solvedProblems: user.solvedProblems,
         bookmarkedProblems: user.bookmarkedProblems,
         badges: user.badges,

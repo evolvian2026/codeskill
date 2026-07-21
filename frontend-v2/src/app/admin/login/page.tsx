@@ -13,7 +13,7 @@ import { Loader2, ShieldCheck, AlertCircle } from "lucide-react";
 
 const adminLoginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
-  password: z.string().min(8, { message: "Password must be at least 8 characters." }),
+  password: z.string().optional(),
   otp: z.string().optional(),
 });
 
@@ -22,6 +22,7 @@ type AdminLoginFormValues = z.infer<typeof adminLoginSchema>;
 export default function AdminLoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showOTP, setShowOTP] = useState(false);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const { adminLogin, adminLoginVerify } = useAuth();
   const router = useRouter();
 
@@ -33,11 +34,13 @@ export default function AdminLoginPage() {
   const onSubmit = async (data: AdminLoginFormValues) => {
     setIsLoading(true);
     form.clearErrors("root");
+    setInfoMessage(null);
     try {
       if (!showOTP) {
         const res = await adminLogin({ email: data.email, password: data.password });
         if (res.requireOTP) {
           setShowOTP(true);
+          if (res.message) setInfoMessage(res.message);
         } else {
           router.push("/admin/dashboard");
         }
@@ -107,6 +110,15 @@ export default function AdminLoginPage() {
                 <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
                 <p className="text-sm font-medium text-red-500 leading-snug">
                   {form.formState.errors.root.message}
+                </p>
+              </div>
+            )}
+
+            {infoMessage && (
+              <div className="p-4 bg-blue-500/10 border border-blue-500/50 rounded-lg flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+                <ShieldCheck className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+                <p className="text-sm font-medium text-blue-500 leading-snug">
+                  {infoMessage}
                 </p>
               </div>
             )}
