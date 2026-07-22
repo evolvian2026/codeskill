@@ -21,6 +21,8 @@ import {
   LinkedinAuthDto,
   AdminLoginDto,
   AdminVerifyOtpDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
 } from './dto/auth.dto';
 
 @Injectable()
@@ -329,23 +331,61 @@ export class AuthService {
     return user;
   }
 
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const normalizedEmail = dto.email.trim().toLowerCase();
+    const user = await this.userModel.findOne({ email: normalizedEmail });
+    if (!user) {
+      throw new BadRequestException('No user found with this email');
+    }
+    if (user.authProvider && user.authProvider !== 'local') {
+      throw new BadRequestException(`Please login using your ${user.authProvider} account`);
+    }
+    await this.otpService.sendOTP(normalizedEmail);
+    return { success: true, message: 'Password reset OTP sent to your email' };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const normalizedEmail = dto.email.trim().toLowerCase();
+    await this.otpService.verifyOTP(normalizedEmail, dto.otp);
+    const user = await this.userModel.findOne({ email: normalizedEmail }).select('+password');
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+    user.password = dto.newPassword;
+    await user.save();
+    return { success: true, message: 'Password has been successfully reset' };
+  }
+
   async adminLogin(dto: AdminLoginDto) {
     const normalizedEmail = dto.email.trim().toLowerCase();
     const user = await this.userModel
       .findOne({ email: normalizedEmail })
       .select('+password');
-    if (!user || !(await (user as any).matchPassword(dto.password))) {
-      throw new UnauthorizedException('Invalid credentials');
+    if (!user) {
+      throw new UnauthorizedException('User not found with this email');
     }
     if (!user.isAdmin) {
       throw new UnauthorizedException('Access denied. Admin only.');
     }
 
+    if (user.password) {
+      if (!dto.password) {
+        throw new BadRequestException('Password is required for this admin account');
+      }
+      const isMatch = await (user as any).matchPassword(dto.password);
+      if (!isMatch) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+    }
+
     await this.otpService.sendOTP(normalizedEmail);
+    const msg = !user.password
+      ? 'Verification OTP sent to your email (OAuth Admin Account)'
+      : 'OTP sent successfully';
     return {
       success: true,
       requireOTP: true,
-      message: 'OTP sent successfully',
+      message: msg,
     };
   }
 
