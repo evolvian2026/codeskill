@@ -42,6 +42,9 @@ export const oauthConfig = registerAs('oauth', () => ({
 }));
 
 export const adminConfig = registerAs('admin', () => ({
-  emails: process.env.ADMIN_EMAILS || process.env.ADMIN_EMAIL || '',
+  emails:
+    process.env.ADMIN_EMAILS ||
+    process.env.ADMIN_EMAIL ||
+    'md.shadab.azam.ansari@gmail.com,kanhamishra555@gmail.com',
   password: process.env.ADMIN_PASSWORD || 'password123',
 }));

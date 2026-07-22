@@ -99,13 +99,16 @@ router.post("/forgot-password", async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ success: false, message: "Email is required" });
 
-    const normalizedEmail = email.trim().toLowerCase();
-    const user = await User.findOne({ email: normalizedEmail });
+    const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ success: false, message: "No user found with this email address" });
+      return res.status(404).json({ success: false, message: "No user found with this email" });
     }
 
-    await sendOTP(normalizedEmail);
+    if (user.authProvider !== "local") {
+      return res.status(400).json({ success: false, message: `Please login using your ${user.authProvider} account` });
+    }
+
+    await sendOTP(email);
     res.json({ success: true, message: "Password reset OTP sent to your email" });
   } catch (error) {
     console.error("Forgot Password Error:", error);
@@ -270,8 +273,8 @@ router.post("/admin-login", async (req, res) => {
     // Send OTP for 2FA verification
     try {
       await sendOTP(normalizedEmail);
-      const msg = !user.password 
-        ? "Verification OTP sent to your email (OAuth Admin Account)" 
+      const msg = !user.password
+        ? "Verification OTP sent to your email (OAuth Admin Account)"
         : "OTP sent successfully";
       res.json({ success: true, requireOTP: true, message: msg });
     } catch (otpError) {

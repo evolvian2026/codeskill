@@ -3,6 +3,7 @@ import {
   BadRequestException,
   UnauthorizedException,
   InternalServerErrorException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -26,7 +27,7 @@ import {
 } from './dto/auth.dto';
 
 @Injectable()
-export class AuthService {
+export class AuthService implements OnModuleInit {
   private googleClient: OAuth2Client;
 
   constructor(
@@ -37,6 +38,14 @@ export class AuthService {
     this.googleClient = new OAuth2Client(
       this.configService.get<string>('oauth.googleClientId'),
     );
+  }
+
+  async onModuleInit() {
+    try {
+      await this.seedAdmin();
+    } catch (err) {
+      console.error('[Seed Admin] Startup error:', err);
+    }
   }
 
   private authResponse(user: UserDocument) {
