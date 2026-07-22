@@ -99,16 +99,13 @@ router.post("/forgot-password", async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ success: false, message: "Email is required" });
 
-    const user = await User.findOne({ email });
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
-      return res.status(404).json({ success: false, message: "No user found with this email" });
+      return res.status(404).json({ success: false, message: "No user found with this email address" });
     }
 
-    if (user.authProvider !== "local") {
-      return res.status(400).json({ success: false, message: `Please login using your ${user.authProvider} account` });
-    }
-
-    await sendOTP(email);
+    await sendOTP(normalizedEmail);
     res.json({ success: true, message: "Password reset OTP sent to your email" });
   } catch (error) {
     console.error("Forgot Password Error:", error);

@@ -335,13 +335,10 @@ export class AuthService {
     const normalizedEmail = dto.email.trim().toLowerCase();
     const user = await this.userModel.findOne({ email: normalizedEmail });
     if (!user) {
-      throw new BadRequestException('No user found with this email');
-    }
-    if (user.authProvider && user.authProvider !== 'local') {
-      throw new BadRequestException(`Please login using your ${user.authProvider} account`);
+      throw new BadRequestException('No user found with this email address');
     }
     await this.otpService.sendOTP(normalizedEmail);
-    return { success: true, message: 'Password reset OTP sent to your email' };
+    return { success: true, message: 'Password reset OTP sent to your email via SES' };
   }
 
   async resetPassword(dto: ResetPasswordDto) {

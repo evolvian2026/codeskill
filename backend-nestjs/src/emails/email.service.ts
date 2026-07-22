@@ -13,23 +13,36 @@ export class EmailService {
     const accessKey = this.configService.get<string>('aws.accessKeyId');
     const secretKey = this.configService.get<string>('aws.secretAccessKey');
     const sessionToken = this.configService.get<string>('aws.sessionToken');
-    const region = this.configService.get<string>('aws.region');
+    const region = this.configService.get<string>('aws.region') || 'ap-south-1';
     this.senderEmail =
       this.configService.get<string>('aws.sesSender') || 'noreply@evolvian.in';
 
     const sesConfig: any = { region };
 
-    if (accessKey && secretKey && accessKey !== 'your_aws_access_key') {
+    const hasCreds = !!(
+      accessKey &&
+      secretKey &&
+      accessKey !== 'your_aws_access_key'
+    );
+    const isProd = process.env.NODE_ENV === 'production';
+    const forceMock = process.env.USE_MOCK_SES === 'true';
+
+    if (hasCreds) {
       sesConfig.credentials = {
         accessKeyId: accessKey,
         secretAccessKey: secretKey,
         ...(sessionToken &&
           sessionToken !== 'your_aws_session_token' && { sessionToken }),
       };
-      this.logger.log('[SES] Using explicit credentials');
+      this.logger.log('[SES] Using explicit credentials from configuration');
+      this.isMock = false;
+    } else if (isProd && !forceMock) {
+      this.logger.log(
+        '[SES] Using EC2 IAM Role / Default AWS Provider Chain in production',
+      );
       this.isMock = false;
     } else {
-      this.logger.warn('[SES] No explicit credentials — using mock service');
+      this.logger.warn('[SES] Using Mock SES service');
       this.isMock = true;
     }
 
