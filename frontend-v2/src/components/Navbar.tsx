@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { User, LogOut, Menu, X, Code2 } from "lucide-react";
+import { User, LogOut, Menu, X, Code2, ShieldCheck } from "lucide-react";
 import { useTheme } from "next-themes";
 
 export function Navbar() {
@@ -89,6 +89,12 @@ export function Navbar() {
           <div className="hidden md:flex items-center gap-4">
             {user ? (
               <>
+                {user.isAdmin && (
+                  <Link href="/admin/dashboard" className="flex items-center gap-1.5 h-9 px-3 rounded-md text-xs font-semibold bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500 hover:text-white transition-colors">
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Admin Portal</span>
+                  </Link>
+                )}
                 <Link href="/profile" className="flex items-center gap-2 h-9 px-4 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                   <User className="w-4 h-4" />
                   <span>Profile</span>
@@ -147,6 +153,12 @@ export function Navbar() {
             <div className="mt-auto flex flex-col gap-4 pt-8 border-t border-border/50">
               {user ? (
                 <>
+                  {user.isAdmin && (
+                    <Link href="/admin/dashboard" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center gap-2 w-full h-12 rounded-md bg-red-500/10 text-red-500 font-semibold border border-red-500/20">
+                      <ShieldCheck className="w-5 h-5" />
+                      <span>Admin Portal</span>
+                    </Link>
+                  )}
                   <Link href="/profile" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center w-full h-12 rounded-md bg-muted text-foreground font-medium">
                     View Profile
                   </Link>
