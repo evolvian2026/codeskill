@@ -66,21 +66,25 @@ export class AdminService {
   }
 
   // Common user management for admin
-  async getUsers(page = 1, limit = 10, search = '') {
-    const filter = search
-      ? {
-          $or: [
-            { name: { $regex: search, $options: 'i' } },
-            { email: { $regex: search, $options: 'i' } },
-          ],
-        }
-      : {};
+  async getUsers(page = 1, limit = 50, search = '', adminsOnly = false) {
+    const filter: any = {};
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    if (adminsOnly) {
+      filter.isAdmin = true;
+    }
 
     const skip = (page - 1) * limit;
 
     const [users, total] = await Promise.all([
       this.userModel
         .find(filter)
+        .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .select('-password')
@@ -88,7 +92,7 @@ export class AdminService {
       this.userModel.countDocuments(filter),
     ]);
 
-    return { users, total, page, pages: Math.ceil(total / limit) };
+    return { success: true, users, total, page, pages: Math.ceil(total / limit) };
   }
 
   async updateUserRole(id: string, roleData: any) {

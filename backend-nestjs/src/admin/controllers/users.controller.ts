@@ -25,18 +25,21 @@ export class AdminUsersController {
     @Query('page') page: string,
     @Query('limit') limit: string,
     @Query('search') search: string,
+    @Query('adminsOnly') adminsOnly: string,
   ) {
     return this.adminService.getUsers(
       parseInt(page, 10) || 1,
-      parseInt(limit, 10) || 10,
+      parseInt(limit, 10) || 50,
       search,
+      adminsOnly === 'true',
     );
   }
 
   @Put(':id/role')
   @ApiOperation({ summary: 'Update user role (admin/campus/company)' })
   async updateUserRole(@Param('id') id: string, @Body() body: any) {
-    return this.adminService.updateUserRole(id, body);
+    const user = await this.adminService.updateUserRole(id, body);
+    return { success: true, user };
   }
 
   @Get(':id/report')
@@ -48,9 +51,28 @@ export class AdminUsersController {
   @Put(':id/promote')
   @ApiOperation({ summary: 'Promote user to admin' })
   async promoteUser(@Param('id') id: string) {
-    return this.adminService.updateUserRole(id, { 
+    const user = await this.adminService.updateUserRole(id, { 
       isAdmin: true, 
       'profile.role': 'admin' 
     });
+    return {
+      success: true,
+      message: `${user.email} is now an admin`,
+      user,
+    };
+  }
+
+  @Put(':id/demote')
+  @ApiOperation({ summary: 'Demote user from admin' })
+  async demoteUser(@Param('id') id: string) {
+    const user = await this.adminService.updateUserRole(id, { 
+      isAdmin: false, 
+      'profile.role': 'student' 
+    });
+    return {
+      success: true,
+      message: `${user.email} is no longer an admin`,
+      user,
+    };
   }
 }

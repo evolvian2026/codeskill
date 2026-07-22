@@ -48,6 +48,50 @@ export class AuthService implements OnModuleInit {
     }
   }
 
+  async seedAdmin() {
+    const adminEmailsString =
+      this.configService.get<string>('admin.emails') ||
+      'md.shadab.azam.ansari@gmail.com,kanhamishra555@gmail.com';
+    const adminEmails = adminEmailsString
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
+
+    const results = [];
+    for (const email of adminEmails) {
+      try {
+        let user = await this.userModel.findOne({ email });
+        if (user) {
+          if (!user.isAdmin) {
+            user.isAdmin = true;
+            await user.save();
+            results.push({ email, status: 'Upgraded to Admin' });
+          } else {
+            results.push({ email, status: 'Already Admin' });
+          }
+        } else {
+          const adminName =
+            email
+              .split('@')[0]
+              .replace(/[._-]/g, ' ')
+              .replace(/\b\w/g, (c) => c.toUpperCase()) + ' (Admin)';
+          await this.userModel.create({
+            name: adminName,
+            email,
+            password:
+              this.configService.get<string>('admin.password') ||
+              'password123',
+            isAdmin: true,
+          });
+          results.push({ email, status: 'Created as Admin' });
+        }
+      } catch (e: any) {
+        results.push({ email, status: `Failed: ${e.message}` });
+      }
+    }
+    return { success: true, message: 'Admin seeding process completed', results };
+  }
+
   private authResponse(user: UserDocument) {
     const token = (user as any).getSignedJwtToken();
     return {
