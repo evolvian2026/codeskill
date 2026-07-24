@@ -29,6 +29,7 @@ import {
   SubmissionDocument,
   Submission,
 } from '../database/schemas/submission.schema';
+import { CacheService } from '../redis/cache.service';
 
 @Injectable()
 export class AdminService {
@@ -48,6 +49,7 @@ export class AdminService {
     private universityModel: Model<UniversityDocument>,
     @InjectModel(Submission.name)
     private submissionModel: Model<SubmissionDocument>,
+    private cacheService: CacheService,
   ) {}
 
   async getDashboardStats() {
@@ -115,7 +117,7 @@ export class AdminService {
 
   async updateUserRole(id: string, roleData: any) {
     const user = await this.userModel
-      .findByIdAndUpdate(id, { $set: roleData }, { new: true })
+      .findByIdAndUpdate(id, { $set: roleData }, { returnDocument: 'after' })
       .select('-password');
     if (!user) throw new NotFoundException('User not found');
     return user;
@@ -177,7 +179,7 @@ export class AdminService {
     const skip = (page - 1) * limit;
 
     const [problems, total] = await Promise.all([
-      this.problemModel.find(filter).skip(skip).limit(limit).lean(),
+      this.problemModel.find(filter).sort({ createdAt: -1, _id: -1 }).skip(skip).limit(limit).lean(),
       this.problemModel.countDocuments(filter),
     ]);
     return { problems, total, page, pages: Math.ceil(total / limit) };
@@ -197,6 +199,10 @@ export class AdminService {
   async deleteProblem(id: string) {
     const problem = await this.problemModel.findByIdAndDelete(id);
     if (!problem) throw new NotFoundException('Problem not found');
+    await this.cacheService.invalidatePrefix('problems:');
+    if (problem.slug) {
+      await this.cacheService.invalidatePrefix(`problem:${problem.slug}`);
+    }
     return { success: true, message: 'Problem deleted' };
   }
 
@@ -214,9 +220,14 @@ export class AdminService {
       publishing
     } = payload;
 
+    const visibility =
+      publishing?.visibility ||
+      metadata?.visibility ||
+      (publishing?.publishImmediately ? 'Published' : publishing?.saveAsDraft ? 'Draft' : 'Draft');
+
     const newProblem = new this.problemModel({
       ...metadata,
-      visibility: publishing?.visibility || 'Draft',
+      visibility,
       author: userId || null,
     });
     
@@ -254,6 +265,8 @@ export class AdminService {
       newTestCase.save(),
     ]);
 
+    await this.cacheService.invalidatePrefix('problems:');
+
     return { success: true, problem: newProblem };
   }
 
@@ -274,11 +287,16 @@ export class AdminService {
     const problem = await this.problemModel.findById(id);
     if (!problem) throw new NotFoundException('Problem not found');
 
+    const visibility =
+      publishing?.visibility ||
+      metadata?.visibility ||
+      (publishing?.publishImmediately ? 'Published' : publishing?.saveAsDraft ? 'Draft' : undefined);
+
     if (metadata) {
       Object.assign(problem, metadata);
     }
-    if (publishing?.visibility) {
-      problem.visibility = publishing.visibility;
+    if (visibility) {
+      problem.visibility = visibility;
     }
     await problem.save();
 
@@ -286,7 +304,7 @@ export class AdminService {
       const stmt = await this.statementModel.findOneAndUpdate(
         { metadataId: id },
         { $set: { ...statement, samples: sampleExamples || [] } },
-        { upsert: true, new: true }
+        { upsert: true, returnDocument: 'after' }
       );
       problem.statement = stmt._id;
     }
@@ -304,7 +322,7 @@ export class AdminService {
     const conf = await this.configModel.findOneAndUpdate(
       { metadataId: id },
       { $set: configUpdate },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
     problem.config = conf._id;
 
@@ -312,12 +330,17 @@ export class AdminService {
       const tc = await this.testCaseModel.findOneAndUpdate(
         { metadataId: id },
         { $set: { cases: testCases.cases } },
-        { upsert: true, new: true }
+        { upsert: true, returnDocument: 'after' }
       );
       problem.testCases = tc._id;
     }
 
     await problem.save();
+
+    await this.cacheService.invalidatePrefix('problems:');
+    if (problem.slug) {
+      await this.cacheService.invalidatePrefix(`problem:${problem.slug}`);
+    }
 
     return { success: true, problem };
   }

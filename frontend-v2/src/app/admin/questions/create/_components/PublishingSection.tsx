@@ -52,10 +52,13 @@ export default function PublishingSection() {
                   key={option.key}
                   type="button"
                   onClick={() => {
+                    const { updateMetadata } = useQuestionStore.getState();
                     if (option.key === "publishImmediately") {
                       updatePublishing({ publishImmediately: true, saveAsDraft: false });
+                      updateMetadata({ visibility: "Published" });
                     } else if (option.key === "saveAsDraft") {
                       updatePublishing({ publishImmediately: false, saveAsDraft: true });
+                      updateMetadata({ visibility: "Draft" });
                     } else {
                       updatePublishing({ publishImmediately: false, saveAsDraft: false });
                     }

@@ -129,9 +129,18 @@ function CreateQuestionContent() {
 
     setLoading(true);
     try {
+      const visibility = (store.metadata.visibility === "Published" || store.publishing.publishImmediately)
+        ? "Published"
+        : (store.metadata.visibility === "Draft" || store.publishing.saveAsDraft)
+        ? "Draft"
+        : store.metadata.visibility || "Draft";
+
       const payload = {
-        metadata: store.metadata,
-        languages: store.languages,
+        metadata: {
+          ...store.metadata,
+          visibility,
+        },
+        languages: store.languages.supported || store.languages,
         execution: store.execution,
         statement: store.statement,
         sampleExamples: store.sampleExamples,
@@ -142,7 +151,10 @@ function CreateQuestionContent() {
         solutionExplanation: store.solutionExplanation,
         seo: store.seo,
         analytics: store.analytics,
-        publishing: store.publishing,
+        publishing: {
+          ...store.publishing,
+          visibility,
+        },
       };
 
       await adminProblemsAPI.create(payload);

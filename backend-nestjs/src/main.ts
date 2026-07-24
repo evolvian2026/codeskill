@@ -1,3 +1,12 @@
+import * as dns from 'dns';
+
+// Fix local network DNS resolution for MongoDB SRV cluster connections
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
+} catch (e) {
+  // Fall back silently if setServers fails
+}
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';

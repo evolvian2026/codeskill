@@ -20,7 +20,11 @@ export class ProblemsService {
     const limit = parseInt(query.limit, 10) || 20;
     const startIndex = (page - 1) * limit;
 
-    const cacheKey = `problems:${page}:${limit}:${query.difficulty || 'all'}:${query.search || 'none'}`;
+    const difficulty = query.difficulty || 'all';
+    const category = query.category || 'all';
+    const search = query.search || 'none';
+
+    const cacheKey = `problems:${page}:${limit}:${difficulty}:${category}:${search}`;
     const cachedData = await this.cacheService.get<any>(cacheKey);
 
     if (cachedData) {
@@ -29,18 +33,27 @@ export class ProblemsService {
 
     const filter: any = { visibility: 'Published' };
 
-    if (query.difficulty) {
+    if (query.difficulty && query.difficulty !== 'all') {
       filter.difficulty = query.difficulty;
     }
 
+    if (query.category && query.category !== 'All Topics' && query.category !== 'all') {
+      filter.categories = { $in: [new RegExp(`^${query.category}$`, 'i')] };
+    }
+
     if (query.search) {
-      filter.title = { $regex: query.search, $options: 'i' };
+      filter.$or = [
+        { title: { $regex: query.search, $options: 'i' } },
+        { slug: { $regex: query.search, $options: 'i' } },
+        { tags: { $in: [new RegExp(query.search, 'i')] } },
+      ];
     }
 
     const [problems, total] = await Promise.all([
       this.problemModel
         .find(filter)
-        .select('title slug difficulty categories tags stats')
+        .select('title slug difficulty categories tags stats createdAt updatedAt')
+        .sort({ createdAt: -1, _id: -1 })
         .skip(startIndex)
         .limit(limit)
         .lean(),
@@ -52,6 +65,7 @@ export class ProblemsService {
       total,
       page,
       pages: Math.ceil(total / limit),
+      totalPages: Math.ceil(total / limit),
       data: problems,
     };
 

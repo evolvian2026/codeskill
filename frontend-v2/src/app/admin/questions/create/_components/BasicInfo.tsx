@@ -139,7 +139,16 @@ export default function BasicInfo() {
             <label className={labelClass}>Visibility</label>
             <select
               value={metadata.visibility}
-              onChange={(e) => updateMetadata({ visibility: e.target.value as "Draft" | "Published" | "Private" })}
+              onChange={(e) => {
+                const vis = e.target.value as "Draft" | "Published" | "Private";
+                updateMetadata({ visibility: vis });
+                const { updatePublishing } = useQuestionStore.getState();
+                if (vis === "Published") {
+                  updatePublishing({ publishImmediately: true, saveAsDraft: false });
+                } else if (vis === "Draft") {
+                  updatePublishing({ publishImmediately: false, saveAsDraft: true });
+                }
+              }}
               className={inputClass}
             >
               <option value="Draft">🔒 Draft (Hidden)</option>

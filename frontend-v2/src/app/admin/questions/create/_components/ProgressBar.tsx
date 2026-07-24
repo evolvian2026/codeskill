@@ -43,6 +43,7 @@ export default function ProgressBar({ value }: ProgressBarProps) {
             strokeWidth="3"
             strokeLinecap="round"
             strokeDasharray={circumference}
+            initial={{ strokeDashoffset: circumference }}
             animate={{ strokeDashoffset: dashOffset }}
             transition={{ type: "spring", stiffness: 80, damping: 20 }}
           />

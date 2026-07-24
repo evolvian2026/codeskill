@@ -65,3 +65,8 @@ export class ProblemMetadata {
 
 export const ProblemMetadataSchema =
   SchemaFactory.createForClass(ProblemMetadata);
+
+ProblemMetadataSchema.index({ visibility: 1, createdAt: -1 });
+ProblemMetadataSchema.index({ visibility: 1, difficulty: 1 });
+ProblemMetadataSchema.index({ categories: 1 });
+ProblemMetadataSchema.index({ tags: 1 });

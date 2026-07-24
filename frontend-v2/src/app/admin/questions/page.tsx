@@ -25,6 +25,20 @@ export default function QuestionsAdminPage() {
     }
   };
 
+  const handleTogglePublish = async (problem: any) => {
+    const isCurrentlyPublished = problem.visibility === "Published" || Boolean(problem.isPublished);
+    const newVisibility = isCurrentlyPublished ? "Draft" : "Published";
+    try {
+      await adminProblemsAPI.update(problem._id, {
+        publishing: { visibility: newVisibility, publishImmediately: newVisibility === "Published" },
+        metadata: { visibility: newVisibility }
+      });
+      fetchProblems();
+    } catch (err) {
+      console.error("Failed to update status", err);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this problem?")) {
       try {
@@ -121,18 +135,36 @@ export default function QuestionsAdminPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-1.5">
-                        <div className={`w-1.5 h-1.5 rounded-full ${problem.isPublished ? 'bg-green-500' : 'bg-muted-foreground'}`} />
-                        <span className="text-xs font-medium text-muted-foreground">
-                          {problem.isPublished ? 'Published' : 'Draft'}
-                        </span>
-                      </div>
+                      {(() => {
+                        const isPublished = problem.visibility === "Published" || Boolean(problem.isPublished);
+                        return (
+                          <button 
+                            type="button"
+                            onClick={() => handleTogglePublish(problem)}
+                            className="flex items-center gap-1.5 hover:opacity-80 transition-opacity cursor-pointer"
+                            title="Click to toggle Published / Draft"
+                          >
+                            <div className={`w-2 h-2 rounded-full ${isPublished ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-amber-500/80'}`} />
+                            <span className={`text-xs font-semibold ${isPublished ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                              {isPublished ? 'Published' : 'Draft'}
+                            </span>
+                          </button>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-4 text-sm text-muted-foreground">
                       {new Date(problem.createdAt).toLocaleDateString('en-GB')}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePublish(problem)}
+                          className="px-2 py-1 text-xs font-medium rounded-md bg-muted hover:bg-muted/80 text-foreground transition-colors"
+                          title="Toggle Publish / Draft"
+                        >
+                          {problem.visibility === "Published" || Boolean(problem.isPublished) ? 'Unpublish' : 'Publish'}
+                        </button>
                         <Link 
                           href={`/problems/${problem.slug}`} 
                           target="_blank"
