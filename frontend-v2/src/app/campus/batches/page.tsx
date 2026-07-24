@@ -83,9 +83,30 @@ export default function CampusBatchesPage() {
     }
   };
 
-  const handleCopyCode = (code: string) => {
-    navigator.clipboard.writeText(code);
-    alert(`Invite Code copied: ${code}\nShare this code with your students!`);
+  const handleCopyCode = async (code: string) => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(code);
+        alert(`Invite Code copied: ${code}\nShare this code with your students!`);
+        return;
+      }
+    } catch (e) {
+      // Fallback
+    }
+    try {
+      const textArea = document.createElement("textarea");
+      textArea.value = code;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-9999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      document.execCommand("copy");
+      textArea.remove();
+      alert(`Invite Code copied: ${code}\nShare this code with your students!`);
+    } catch (err) {
+      console.warn("Copy failed", err);
+    }
   };
 
   const filteredBatches = batches.filter(b => 

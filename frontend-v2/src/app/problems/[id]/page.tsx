@@ -397,8 +397,28 @@ export default function ProblemWorkspace({ params }: { params: Promise<{ id: str
     localStorage.removeItem(`codeskill_draft_${problem.slug}_${language}`);
   };
 
-  const handleCopyCode = () => {
-    navigator.clipboard.writeText(code);
+  const handleCopyCode = async () => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(code);
+        return;
+      }
+    } catch (e) {
+      // Fall back if document is unfocused or clipboard API is blocked
+    }
+    try {
+      const textArea = document.createElement("textarea");
+      textArea.value = code;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-9999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      document.execCommand("copy");
+      textArea.remove();
+    } catch (err) {
+      console.warn("Copy failed", err);
+    }
   };
 
   if (loading) {
