@@ -87,20 +87,74 @@ function writeProjectFiles(tmpDir, config) {
 }
 
 // ── JavaScript Runner (Node.js child process) ──
+function extractFunctionName(code, language) {
+  if (language === 'js' || language === 'javascript' || language === 'node') {
+    const match = code.match(/function\s+([a-zA-Z0-9_]+)\s*\(/) || code.match(/(?:const|let|var)\s+([a-zA-Z0-9_]+)\s*=/);
+    if (match) return match[1];
+  }
+  if (language === 'py' || language === 'python' || language === 'python3') {
+    const match = code.match(/def\s+([a-zA-Z0-9_]+)\s*\(/);
+    if (match) return match[1];
+  }
+  if (language === 'cpp' || language === 'c++') {
+    const match = code.match(/(?:int|string|vector|bool|double|float|long|void)\s+([a-zA-Z0-9_]+)\s*\(/);
+    if (match && match[1] !== 'main') return match[1];
+  }
+  if (language === 'java') {
+    const match = code.match(/(?:public|private|protected)?\s*(?:static)?\s*(?:int|String|boolean|double|float|long|int\[\]|void)\s+([a-zA-Z0-9_]+)\s*\(/);
+    if (match && match[1] !== 'main') return match[1];
+  }
+  return 'twoSum';
+}
+
+function parseInputArgs(input) {
+  if (input === undefined || input === null) return [];
+  if (typeof input === 'object' && !Array.isArray(input)) {
+    return Object.values(input);
+  }
+  if (typeof input === 'string') {
+    try {
+      const parsed = JSON.parse(input);
+      if (Array.isArray(parsed)) return [parsed];
+      if (typeof parsed === 'object') return Object.values(parsed);
+      return [parsed];
+    } catch {
+      const lines = input.split('\n').map(l => l.trim()).filter(Boolean);
+      return lines.map(l => {
+        try { return JSON.parse(l); } catch { return l; }
+      });
+    }
+  }
+  return [input];
+}
+
+function compareOutput(actual, expected) {
+  if (actual === expected) return true;
+  if (JSON.stringify(actual) === JSON.stringify(expected)) return true;
+  if (Array.isArray(actual) && Array.isArray(expected)) {
+    if (actual.length !== expected.length) return false;
+    const sortedA = [...actual].sort((a, b) => (a > b ? 1 : -1));
+    const sortedE = [...expected].sort((a, b) => (a > b ? 1 : -1));
+    return JSON.stringify(sortedA) === JSON.stringify(sortedE);
+  }
+  return String(actual).trim() === String(expected).trim();
+}
+
 async function runJavaScript(code, testCases, runOpts) {
   const results = [];
+  const fnName = extractFunctionName(code, 'js');
 
   for (const tc of testCases) {
+    const args = parseInputArgs(tc.input);
+
     const tmpDir = path.join(os.tmpdir(), `cs_js_${randomUUID()}`);
     fs.mkdirSync(tmpDir, { recursive: true });
     writeProjectFiles(tmpDir, runOpts.config);
 
     const script = `
 const __logs = [];
-const __print = process.stdout.write.bind(process.stdout);
 const __origLog = console.log.bind(console);
 
-// Override console methods to capture logs
 const __mockConsole = {
   log: (...a) => __logs.push(a.map(x => typeof x === 'object' ? JSON.stringify(x) : String(x)).join(' ')),
   warn: (...a) => __logs.push('[warn] ' + a.map(x => String(x)).join(' ')),
@@ -112,10 +166,22 @@ console.error = __mockConsole.error;
 
 ${code}
 
-const __input = ${JSON.stringify(tc.input)};
+let __fn = typeof ${fnName} === 'function' ? ${fnName} : null;
+if (!__fn && typeof globalThis['${fnName}'] === 'function') __fn = globalThis['${fnName}'];
+if (!__fn) {
+  const funcs = Object.keys(globalThis).filter(k => typeof globalThis[k] === 'function' && !k.startsWith('__'));
+  if (funcs.length > 0) __fn = globalThis[funcs[funcs.length - 1]];
+}
+
+if (typeof __fn !== 'function') {
+  __origLog(JSON.stringify({ __error: "Function '${fnName}' is not defined", __logs }));
+  process.exit(0);
+}
+
 let __result;
 try {
-  __result = twoSum(__input.nums, __input.target);
+  const __args = ${JSON.stringify(args)};
+  __result = __fn(...__args);
 } catch(e) {
   __origLog(JSON.stringify({ __error: e.message, __logs }));
   process.exit(0);
@@ -133,7 +199,7 @@ __origLog(JSON.stringify({ __result, __logs }));
       if (parsed.__error) {
         results.push({ id: tc.id, passed: false, output: "Error", expected: JSON.stringify(tc.expected), error: parsed.__error, logs: parsed.__logs || [] });
       } else {
-        const passed = compareArrays(parsed.__result, tc.expected);
+        const passed = compareOutput(parsed.__result, tc.expected);
         results.push({
           id: tc.id,
           passed,

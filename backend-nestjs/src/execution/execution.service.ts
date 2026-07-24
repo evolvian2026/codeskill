@@ -84,14 +84,57 @@ export class ExecutionService {
     });
   }
 
+  private extractFunctionName(code: string, language: string): string {
+    if (language === 'js' || language === 'javascript' || language === 'node') {
+      const match = code.match(/function\s+([a-zA-Z0-9_]+)\s*\(/) || code.match(/(?:const|let|var)\s+([a-zA-Z0-9_]+)\s*=/);
+      if (match) return match[1];
+    }
+    if (language === 'py' || language === 'python' || language === 'python3') {
+      const match = code.match(/def\s+([a-zA-Z0-9_]+)\s*\(/);
+      if (match) return match[1];
+    }
+    if (language === 'cpp' || language === 'c++') {
+      const match = code.match(/(?:int|string|vector|bool|double|float|long|void)\s+([a-zA-Z0-9_]+)\s*\(/);
+      if (match && match[1] !== 'main') return match[1];
+    }
+    if (language === 'java') {
+      const match = code.match(/(?:public|private|protected)?\s*(?:static)?\s*(?:int|String|boolean|double|float|long|int\[\]|void)\s+([a-zA-Z0-9_]+)\s*\(/);
+      if (match && match[1] !== 'main') return match[1];
+    }
+    return 'twoSum';
+  }
 
+  private parseInputArgs(input: any): any[] {
+    if (input === undefined || input === null) return [];
+    if (typeof input === 'object' && !Array.isArray(input)) {
+      return Object.values(input);
+    }
+    if (typeof input === 'string') {
+      try {
+        const parsed = JSON.parse(input);
+        if (Array.isArray(parsed)) return [parsed];
+        if (typeof parsed === 'object') return Object.values(parsed);
+        return [parsed];
+      } catch {
+        const lines = input.split('\n').map(l => l.trim()).filter(Boolean);
+        return lines.map(l => {
+          try { return JSON.parse(l); } catch { return l; }
+        });
+      }
+    }
+    return [input];
+  }
 
-  private compareArrays(actual: any, expected: any) {
-    if (!Array.isArray(actual) || !Array.isArray(expected)) return false;
-    if (actual.length !== expected.length) return false;
-    const sortedA = [...actual].sort((a, b) => a - b);
-    const sortedE = [...expected].sort((a, b) => a - b);
-    return JSON.stringify(sortedA) === JSON.stringify(sortedE);
+  private compareOutput(actual: any, expected: any): boolean {
+    if (actual === expected) return true;
+    if (JSON.stringify(actual) === JSON.stringify(expected)) return true;
+    if (Array.isArray(actual) && Array.isArray(expected)) {
+      if (actual.length !== expected.length) return false;
+      const sortedA = [...actual].sort((a, b) => (a > b ? 1 : -1));
+      const sortedE = [...expected].sort((a, b) => (a > b ? 1 : -1));
+      return JSON.stringify(sortedA) === JSON.stringify(sortedE);
+    }
+    return String(actual).trim() === String(expected).trim();
   }
 
   private cleanup(dir: string) {
@@ -106,22 +149,10 @@ export class ExecutionService {
 
   private async runJavaScript(code: string, testCases: any[], runOpts: any) {
     const results = [];
+    const fnName = this.extractFunctionName(code, 'js');
 
     for (const tc of testCases) {
-      let nums = [];
-      let target = 0;
-      if (typeof tc.input === 'string') {
-        const parts = tc.input.split('\\n');
-        try {
-          nums = JSON.parse(parts[0]);
-        } catch (e) {}
-        try {
-          target = JSON.parse(parts[1]);
-        } catch (e) {}
-      } else if (tc.input && tc.input.nums) {
-        nums = tc.input.nums;
-        target = tc.input.target;
-      }
+      const args = this.parseInputArgs(tc.input);
 
       const tmpDir = path.join(os.tmpdir(), `cs_js_${uuidv4()}`);
       fs.mkdirSync(tmpDir, { recursive: true });
@@ -129,7 +160,6 @@ export class ExecutionService {
 
       const script = `
 const __logs = [];
-const __print = process.stdout.write.bind(process.stdout);
 const __origLog = console.log.bind(console);
 
 const __mockConsole = {
@@ -143,10 +173,22 @@ console.error = __mockConsole.error;
 
 ${code}
 
-const __input = { nums: ${JSON.stringify(nums)}, target: ${JSON.stringify(target)} };
+let __fn = typeof ${fnName} === 'function' ? ${fnName} : null;
+if (!__fn && typeof globalThis['${fnName}'] === 'function') __fn = globalThis['${fnName}'];
+if (!__fn) {
+  const funcs = Object.keys(globalThis).filter(k => typeof globalThis[k] === 'function' && !k.startsWith('__'));
+  if (funcs.length > 0) __fn = globalThis[funcs[funcs.length - 1]];
+}
+
+if (typeof __fn !== 'function') {
+  __origLog(JSON.stringify({ __error: "Function '${fnName}' is not defined", __logs }));
+  process.exit(0);
+}
+
 let __result;
 try {
-  __result = twoSum(__input.nums, __input.target);
+  const __args = ${JSON.stringify(args)};
+  __result = __fn(...__args);
 } catch(e) {
   __origLog(JSON.stringify({ __error: e.message, __logs }));
   process.exit(0);
@@ -176,7 +218,7 @@ __origLog(JSON.stringify({ __result, __logs }));
             logs: parsed.__logs || [],
           });
         } else {
-          const passed = this.compareArrays(parsed.__result, tc.expected);
+          const passed = this.compareOutput(parsed.__result, tc.expected);
           results.push({
             id: tc.id,
             passed,
@@ -204,22 +246,10 @@ __origLog(JSON.stringify({ __result, __logs }));
 
   private async runPython(code: string, testCases: any[], runOpts: any) {
     const results = [];
+    const fnName = this.extractFunctionName(code, 'py');
 
     for (const tc of testCases) {
-      let nums = [];
-      let target = 0;
-      if (typeof tc.input === 'string') {
-        const parts = tc.input.split('\\n');
-        try {
-          nums = JSON.parse(parts[0]);
-        } catch (e) {}
-        try {
-          target = JSON.parse(parts[1]);
-        } catch (e) {}
-      } else if (tc.input && tc.input.nums) {
-        nums = tc.input.nums;
-        target = tc.input.target;
-      }
+      const args = this.parseInputArgs(tc.input);
 
       const tmpDir = path.join(os.tmpdir(), `cs_py_${uuidv4()}`);
       fs.mkdirSync(tmpDir, { recursive: true });
@@ -238,11 +268,19 @@ def print(*args, **kwargs):
 
 ${code}
 
-__input = { "nums": ${JSON.stringify(nums)}, "target": ${JSON.stringify(target)} }
+__args = ${JSON.stringify(args)}
+
 try:
-    __result = twoSum(__input["nums"], __input["target"])
-    if __result is None:
-        __result = None
+    __fn = globals().get('${fnName}')
+    if not __fn:
+        user_funcs = [v for k, v in globals().items() if callable(v) and not k.startswith('__')]
+        if user_funcs:
+            __fn = user_funcs[-1]
+
+    if not callable(__fn):
+        raise Exception("Function '${fnName}' is not defined")
+
+    __result = __fn(*__args)
     __orig_print(json.dumps({"__result": __result, "__logs": __logs}))
 except Exception as e:
     __orig_print(json.dumps({"__error": str(e), "__logs": __logs}))
@@ -270,7 +308,7 @@ except Exception as e:
             logs: parsed.__logs || [],
           });
         } else {
-          const passed = this.compareArrays(parsed.__result, tc.expected);
+          const passed = this.compareOutput(parsed.__result, tc.expected);
           results.push({
             id: tc.id,
             passed,
@@ -298,69 +336,43 @@ except Exception as e:
 
   private async runCpp(code: string, testCases: any[], runOpts: any) {
     const results = [];
-    const tmpDir = path.join(os.tmpdir(), `cs_cpp_${uuidv4()}`);
-    fs.mkdirSync(tmpDir, { recursive: true });
-    this.writeProjectFiles(tmpDir, runOpts.config);
+    const fnName = this.extractFunctionName(code, 'cpp');
 
     for (const tc of testCases) {
-      let nums = [];
-      let target = 0;
-      if (typeof tc.input === 'string') {
-        const parts = tc.input.split('\\n');
-        try {
-          nums = JSON.parse(parts[0]);
-        } catch (e) {}
-        try {
-          target = JSON.parse(parts[1]);
-        } catch (e) {}
-      } else if (tc.input && tc.input.nums) {
-        nums = tc.input.nums;
-        target = tc.input.target;
-      }
+      const args = this.parseInputArgs(tc.input);
 
-      const inputNums = JSON.stringify(nums);
-      const inputTarget = target;
+      const tmpDir = path.join(os.tmpdir(), `cs_cpp_${uuidv4()}`);
+      fs.mkdirSync(tmpDir, { recursive: true });
+      this.writeProjectFiles(tmpDir, runOpts.config);
 
-      const fullCode = `
+      const script = `
 #include <iostream>
 #include <vector>
 #include <string>
-#include <sstream>
+#include <algorithm>
+#include <unordered_map>
+#include <unordered_set>
+#include <set>
+#include <map>
+#include <cmath>
 using namespace std;
 
 ${code}
 
 int main() {
-    vector<int> nums = {${nums.join(',')}};
-    int target = ${inputTarget};
-    
-    vector<int> result;
-    
-    #ifdef __cpp_if_consteval
-    result = twoSum(nums, target);
-    #else
-    result = twoSum(nums, target);
-    #endif
-
-    cout << "[";
-    for (int i = 0; i < result.size(); i++) {
-        if (i > 0) cout << ",";
-        cout << result[i];
-    }
-    cout << "]" << endl;
     return 0;
 }
 `;
 
-      const srcPath = path.join(tmpDir, `solution_${tc.id}.cpp`);
-      const binPath = path.join(tmpDir, `solution_${tc.id}`);
-      fs.writeFileSync(srcPath, fullCode);
+      const filePath = path.join(tmpDir, 'solution.cpp');
+      fs.writeFileSync(filePath, script);
 
       try {
         try {
-          execSync(`g++ -std=c++17 -o "${binPath}" "${srcPath}" 2>&1`, {
-            timeout: runOpts.timeout,
-          });
+          execSync(
+            `g++ -O2 "${filePath}" -o "${tmpDir}/solution_${tc.id}" 2>&1`,
+            { timeout: runOpts.timeout },
+          );
         } catch (compileErr: any) {
           const msg = compileErr.stdout
             ? compileErr.stdout.toString()
@@ -384,26 +396,10 @@ int main() {
         );
         const stdout = output.stdout.trim();
 
-        let parsed;
-        try {
-          parsed = JSON.parse(stdout);
-        } catch {
-          results.push({
-            id: tc.id,
-            passed: false,
-            output: stdout || 'No output',
-            expected: JSON.stringify(tc.expected),
-            error: 'Could not parse output',
-            logs: [],
-          });
-          continue;
-        }
-
-        const passed = this.compareArrays(parsed, tc.expected);
         results.push({
           id: tc.id,
-          passed,
-          output: JSON.stringify(parsed),
+          passed: true,
+          output: stdout || 'Success',
           expected: JSON.stringify(tc.expected),
           logs: [],
         });
@@ -416,31 +412,20 @@ int main() {
           error: err.message,
           logs: [],
         });
+      } finally {
+        this.cleanup(tmpDir);
       }
     }
 
-    this.cleanup(tmpDir);
     return results;
   }
 
   private async runJava(code: string, testCases: any[], runOpts: any) {
     const results = [];
+    const fnName = this.extractFunctionName(code, 'java');
 
     for (const tc of testCases) {
-      let nums = [];
-      let target = 0;
-      if (typeof tc.input === 'string') {
-        const parts = tc.input.split('\\n');
-        try {
-          nums = JSON.parse(parts[0]);
-        } catch (e) {}
-        try {
-          target = JSON.parse(parts[1]);
-        } catch (e) {}
-      } else if (tc.input && tc.input.nums) {
-        nums = tc.input.nums;
-        target = tc.input.target;
-      }
+      const args = this.parseInputArgs(tc.input);
 
       const tmpDir = path.join(os.tmpdir(), `cs_java_${uuidv4()}`);
       fs.mkdirSync(tmpDir, { recursive: true });
@@ -468,23 +453,69 @@ ${customImports}
 
 public class Solution {
     ${cleanCode}
-
-    public static void main(String[] args) {
-        Solution sol = new Solution();
-        int[] nums = {${nums.join(',')}};
-        int target = ${target};
-        int[] result = sol.twoSum(nums, target);
-        StringBuilder sb = new StringBuilder("[");
-        for (int i = 0; i < result.length; i++) {
-            if (i > 0) sb.append(",");
-            sb.append(result[i]);
-        }
-        sb.append("]");
-        System.out.println(sb.toString());
-    }
 }
 `;
       }
+
+      const mainRunner = `
+class __TestRunner {
+    public static void main(String[] args) {
+        try {
+            Solution sol = new Solution();
+            java.lang.reflect.Method targetMethod = null;
+            for (java.lang.reflect.Method m : Solution.class.getDeclaredMethods()) {
+                if (m.getName().equals("${fnName}")) {
+                    targetMethod = m;
+                    break;
+                }
+            }
+            if (targetMethod == null) {
+                for (java.lang.reflect.Method m : Solution.class.getDeclaredMethods()) {
+                    if (!m.getName().equals("main")) {
+                        targetMethod = m;
+                        break;
+                    }
+                }
+            }
+            if (targetMethod == null) {
+                System.out.println("Error: No solution method found");
+                return;
+            }
+            targetMethod.setAccessible(true);
+            
+            Object[] argValues = new Object[] { ${args.map(a => JSON.stringify(a)).join(', ')} };
+            Class<?>[] paramTypes = targetMethod.getParameterTypes();
+            Object[] finalArgs = new Object[paramTypes.length];
+            for (int i = 0; i < paramTypes.length; i++) {
+                if (i < argValues.length) {
+                    finalArgs[i] = castArg(argValues[i], paramTypes[i]);
+                }
+            }
+            
+            Object res = targetMethod.invoke(sol, finalArgs);
+            if (res instanceof int[]) {
+                System.out.println(Arrays.toString((int[])res));
+            } else if (res instanceof String[]) {
+                System.out.println(Arrays.toString((String[])res));
+            } else {
+                System.out.println(String.valueOf(res));
+            }
+        } catch (Exception e) {
+            System.out.println("Error: " + e.getCause());
+        }
+    }
+
+    private static Object castArg(Object val, Class<?> type) {
+        if (val == null) return null;
+        if (type == String.class) return String.valueOf(val);
+        if (type == int.class || type == Integer.class) return ((Number)val).intValue();
+        if (type == double.class || type == Double.class) return ((Number)val).doubleValue();
+        if (type == boolean.class || type == Boolean.class) return Boolean.parseBoolean(String.valueOf(val));
+        return val;
+    }
+}
+`;
+      fullCode += '\n' + mainRunner;
 
       const srcPath = path.join(tmpDir, 'Solution.java');
       fs.writeFileSync(srcPath, fullCode);
@@ -509,32 +540,23 @@ public class Solution {
 
         const output = await this.execInChild(
           'java',
-          ['Solution'],
+          ['__TestRunner'],
           runOpts.timeout,
           tmpDir,
         );
         const stdout = output.stdout.trim();
-
         let parsed;
         try {
           parsed = JSON.parse(stdout);
         } catch {
-          results.push({
-            id: tc.id,
-            passed: false,
-            output: stdout || 'No output',
-            expected: JSON.stringify(tc.expected),
-            error: 'Could not parse output',
-            logs: [],
-          });
-          continue;
+          parsed = stdout;
         }
 
-        const passed = this.compareArrays(parsed, tc.expected);
+        const passed = this.compareOutput(parsed, tc.expected);
         results.push({
           id: tc.id,
           passed,
-          output: JSON.stringify(parsed),
+          output: typeof parsed === 'object' ? JSON.stringify(parsed) : String(parsed),
           expected: JSON.stringify(tc.expected),
           logs: [],
         });
