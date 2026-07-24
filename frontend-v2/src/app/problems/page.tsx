@@ -20,18 +20,25 @@ export default function ProblemsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   useEffect(() => {
     setLoading(true);
-    problemsAPI.getAll(currentPage, ITEMS_PER_PAGE, search, activeCategory).then(res => {
-      setProblems(res.data.data);
-      setTotalPages(res.data.totalPages || 1);
-      setTotalItems(res.data.total || 0);
+    problemsAPI.getAll(currentPage, ITEMS_PER_PAGE, debouncedSearch, activeCategory).then(res => {
+      setProblems(res.data?.data || []);
+      setTotalPages(res.data?.totalPages || 1);
+      setTotalItems(res.data?.total || 0);
       setLoading(false);
     }).catch(err => {
       console.error(err);
       setLoading(false);
     });
-  }, [currentPage, search, activeCategory]);
+  }, [currentPage, debouncedSearch, activeCategory]);
 
   const categories = ["All Topics", "Arrays", "Strings", "Dynamic Programming", "Trees", "Graphs", "Math"];
 

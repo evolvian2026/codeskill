@@ -13,7 +13,7 @@ export default function CompilerMessage({ message }: CompilerMessageProps) {
 
   const handleCopy = async () => {
     try {
-      if (navigator.clipboard && window.isSecureContext) {
+      if (typeof document !== "undefined" && document.hasFocus() && navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(message);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);

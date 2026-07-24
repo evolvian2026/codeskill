@@ -399,7 +399,7 @@ export default function ProblemWorkspace({ params }: { params: Promise<{ id: str
 
   const handleCopyCode = async () => {
     try {
-      if (navigator.clipboard && window.isSecureContext) {
+      if (typeof document !== "undefined" && document.hasFocus() && navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(code);
         return;
       }

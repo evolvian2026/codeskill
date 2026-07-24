@@ -85,7 +85,7 @@ export default function CampusBatchesPage() {
 
   const handleCopyCode = async (code: string) => {
     try {
-      if (navigator.clipboard && window.isSecureContext) {
+      if (typeof document !== "undefined" && document.hasFocus() && navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(code);
         alert(`Invite Code copied: ${code}\nShare this code with your students!`);
         return;

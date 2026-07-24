@@ -16,7 +16,7 @@ function OutputSection({ title, content, icon: Icon = Terminal }: OutputSectionP
 
   const handleCopy = async () => {
     try {
-      if (navigator.clipboard && window.isSecureContext) {
+      if (typeof document !== "undefined" && document.hasFocus() && navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(content);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
