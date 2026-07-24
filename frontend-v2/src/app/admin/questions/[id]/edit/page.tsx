@@ -95,8 +95,7 @@ function EditQuestionContent() {
         if (data.config) {
           mappedState.languages = {
             supported: data.config.supportedLanguages || [],
-            default: data.config.supportedLanguages?.[0] || "",
-            versions: {}
+            compilerVersions: {}
           };
           mappedState.execution = {
             timeLimit: data.config.timeLimit || 2000,
@@ -113,8 +112,9 @@ function EditQuestionContent() {
           }
           
           mappedState.customChecker = {
-            hasCustomChecker: data.config.hasCustomChecker || false,
-            customCheckerCode: data.config.customCheckerCode || {},
+            enabled: data.config.hasCustomChecker || false,
+            language: data.config.customCheckerCode?.language || "cpp",
+            code: data.config.customCheckerCode?.code || "",
           };
         }
 
@@ -123,9 +123,13 @@ function EditQuestionContent() {
         }
 
         mappedState.publishing = {
-          visibility: data.visibility || "Draft",
-          isPremium: false,
-          allowSubmissions: true
+          publishImmediately: data.visibility === "Published",
+          saveAsDraft: data.visibility === "Draft",
+          scheduledDate: "",
+          isArchived: false,
+          isFeatured: false,
+          contestOnly: false,
+          practiceOnly: true,
         };
 
         setAllData(mappedState);

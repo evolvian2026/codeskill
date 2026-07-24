@@ -426,5 +426,21 @@ export const useQuestionStore = create<QuestionState>((set, get) => ({
   },
 
   resetStore: () => set({ ...initialState, metadata: { ...initialState.metadata, questionId: `QID-${Date.now().toString(36).toUpperCase()}` } }),
-  setAllData: (data) => set({ ...data }),
+  setAllData: (data) => set((state) => {
+    return {
+      metadata: { ...state.metadata, ...data.metadata },
+      languages: { ...state.languages, ...data.languages },
+      execution: { ...state.execution, ...data.execution },
+      statement: { ...state.statement, ...data.statement },
+      sampleExamples: data.sampleExamples || state.sampleExamples,
+      starterCode: { ...state.starterCode, ...data.starterCode },
+      referenceSolution: { ...state.referenceSolution, ...data.referenceSolution },
+      testCases: data.testCases || state.testCases,
+      customChecker: { ...state.customChecker, ...data.customChecker },
+      solutionExplanation: { ...state.solutionExplanation, ...data.solutionExplanation },
+      seo: { ...state.seo, ...data.seo },
+      analytics: { ...state.analytics, ...data.analytics },
+      publishing: { ...state.publishing, ...data.publishing }
+    };
+  }),
 }));
