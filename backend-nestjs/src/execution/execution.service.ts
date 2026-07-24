@@ -446,9 +446,9 @@ int main() {
       fs.mkdirSync(tmpDir, { recursive: true });
       this.writeProjectFiles(tmpDir, runOpts.config);
 
-      const importMatches = code.match(/(^|\n)\s*import\s+[^;]+;/g) || [];
-      const customImports = importMatches.map(s => s.trim()).join('\n');
-      let cleanCode = code.replace(/(^|\n)\s*import\s+[^;]+;/g, '');
+      const importMatches = code.match(/import\s+[a-zA-Z0-9_.*]+;/g) || [];
+      const customImports = Array.from(new Set(importMatches.map(s => s.trim()))).join('\n');
+      let cleanCode = code.replace(/import\s+[a-zA-Z0-9_.*]+;/g, '').trim();
 
       let fullCode = '';
       if (cleanCode.includes('class Solution') || cleanCode.includes('class Main')) {
