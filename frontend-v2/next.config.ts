@@ -22,7 +22,9 @@ export default async () => {
   }
 
   const nextConfig: NextConfig = {
-    /* config options here */
+    turbopack: {
+      root: __dirname,
+    },
   };
 
   return nextConfig;
