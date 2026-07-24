@@ -63,9 +63,10 @@ export class ExecutionService {
     args: string[],
     timeout: number,
     cwd?: string,
+    inputStr?: string,
   ): Promise<any> {
     return new Promise((resolve, reject) => {
-      execFile(
+      const child = execFile(
         command,
         args,
         { timeout, maxBuffer: 1024 * 1024, cwd },
@@ -81,6 +82,11 @@ export class ExecutionService {
           resolve({ stdout, stderr });
         },
       );
+
+      if (inputStr && child.stdin) {
+        child.stdin.write(inputStr + '\n');
+        child.stdin.end();
+      }
     });
   }
 
@@ -125,6 +131,12 @@ export class ExecutionService {
     return [input];
   }
 
+  private getInputString(input: any): string {
+    if (typeof input === 'string') return input;
+    if (typeof input === 'object') return Object.values(input).join('\n');
+    return String(input || '');
+  }
+
   private compareOutput(actual: any, expected: any): boolean {
     if (actual === expected) return true;
     if (JSON.stringify(actual) === JSON.stringify(expected)) return true;
@@ -153,6 +165,7 @@ export class ExecutionService {
 
     for (const tc of testCases) {
       const args = this.parseInputArgs(tc.input);
+      const inputStr = this.getInputString(tc.input);
 
       const tmpDir = path.join(os.tmpdir(), `cs_js_${uuidv4()}`);
       fs.mkdirSync(tmpDir, { recursive: true });
@@ -205,6 +218,7 @@ __origLog(JSON.stringify({ __result, __logs }));
           ['solution.js'],
           runOpts.timeout,
           tmpDir,
+          inputStr,
         );
         const parsed = JSON.parse(output.stdout.trim());
 
@@ -250,6 +264,7 @@ __origLog(JSON.stringify({ __result, __logs }));
 
     for (const tc of testCases) {
       const args = this.parseInputArgs(tc.input);
+      const inputStr = this.getInputString(tc.input);
 
       const tmpDir = path.join(os.tmpdir(), `cs_py_${uuidv4()}`);
       fs.mkdirSync(tmpDir, { recursive: true });
@@ -295,6 +310,7 @@ except Exception as e:
           ['solution.py'],
           runOpts.timeout,
           tmpDir,
+          inputStr,
         );
         const parsed = JSON.parse(output.stdout.trim());
 
@@ -340,6 +356,7 @@ except Exception as e:
 
     for (const tc of testCases) {
       const args = this.parseInputArgs(tc.input);
+      const inputStr = this.getInputString(tc.input);
 
       const tmpDir = path.join(os.tmpdir(), `cs_cpp_${uuidv4()}`);
       fs.mkdirSync(tmpDir, { recursive: true });
@@ -393,6 +410,7 @@ int main() {
           ['-c', `./solution_${tc.id}`],
           runOpts.timeout,
           tmpDir,
+          inputStr,
         );
         const stdout = output.stdout.trim();
 
@@ -426,6 +444,7 @@ int main() {
 
     for (const tc of testCases) {
       const args = this.parseInputArgs(tc.input);
+      const inputStr = this.getInputString(tc.input);
 
       const tmpDir = path.join(os.tmpdir(), `cs_java_${uuidv4()}`);
       fs.mkdirSync(tmpDir, { recursive: true });
@@ -543,6 +562,7 @@ class __TestRunner {
           ['__TestRunner'],
           runOpts.timeout,
           tmpDir,
+          inputStr,
         );
         const stdout = output.stdout.trim();
         let parsed;
