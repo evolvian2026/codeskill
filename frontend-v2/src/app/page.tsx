@@ -106,14 +106,73 @@ const features = [
 ];
 
 import GSAPProvider from "@/components/GSAPProvider";
-import MorphHero from "@/components/MorphHero";
+import AnimatedBackground from "@/components/AnimatedBackground";
 
 export default function Home() {
   return (
     <GSAPProvider>
       <div className="flex-1 flex flex-col w-full">
-        {/* 1. GSAP Morphing Hero Section */}
-        <MorphHero />
+        {/* 1. Hero Section with GSAP Morphing Canvas */}
+        <section className="relative w-full min-h-screen flex flex-col items-center justify-center bg-background text-foreground overflow-hidden pt-32 pb-32">
+          <AnimatedBackground className="absolute inset-0 z-0" intensity="high" showGrid={true} interactive={true} />
+
+          {/* Floating Code Snippet 1 */}
+          <motion.div 
+            animate={{ y: [0, -20, 0], opacity: [0, 1, 0] }}
+            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute top-[20%] left-[10%] hidden lg:block z-10"
+          >
+            <div className="bg-[#111827] text-white p-4 rounded-xl shadow-2xl text-xs font-mono w-48 border border-[#09090B]/10">
+              <span className="text-primary">function</span> <span className="text-blue-400">solve</span>() {'{\n'}
+              {'  '}return <span className="text-success font-semibold">true</span>;{'\n'}
+              {'}'}
+            </div>
+          </motion.div>
+          
+          {/* Floating Code Snippet 2 */}
+          <motion.div 
+            animate={{ y: [0, 20, 0], opacity: [0, 1, 0] }}
+            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+            className="absolute bottom-[30%] right-[10%] hidden lg:block z-10"
+          >
+            <div className="bg-card border border-border text-card-foreground p-4 rounded-xl shadow-2xl text-xs font-mono w-56">
+              <span className="text-primary">const</span> result = <span className="text-blue-500 font-semibold">optimize</span>();
+            </div>
+          </motion.div>
+
+          <div className="relative z-10 px-6 max-w-5xl mx-auto text-center flex flex-col items-center justify-center flex-1">
+            <motion.div
+              variants={staggerContainer}
+              initial="hidden"
+              animate="show"
+              className="flex flex-col items-center w-full"
+            >
+              <motion.div variants={fadeUp} className="mb-8 inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border bg-muted/80 backdrop-blur-md hover:bg-muted transition-colors cursor-pointer shadow-sm">
+                <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
+                <span className="text-sm font-medium text-muted-foreground">CodeSkill 2.0 is now live</span>
+              </motion.div>
+
+              <motion.h1 variants={fadeUp} className="text-5xl md:text-7xl lg:text-[5.5rem] font-bold font-heading text-foreground tracking-tight mb-8 leading-[1.05] max-w-4xl mx-auto">
+                Become the Developer <br className="hidden md:block" />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-indigo-500 to-primary animate-gradient bg-300%">Companies Want to Hire.</span>
+              </motion.h1>
+
+              <motion.p variants={fadeUp} className="text-lg md:text-xl text-muted-foreground mb-12 max-w-2xl leading-relaxed">
+                Practice coding, master algorithms, and ace technical interviews with real-world challenges.
+              </motion.p>
+
+              <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-center gap-4 w-full justify-center">
+                <Link href="/problems" className={cn(buttonVariants({ size: "lg" }), "rounded-full bg-zinc-900 dark:bg-white text-white dark:text-black hover:bg-zinc-800 dark:hover:bg-zinc-200 shadow-xl shadow-black/20 dark:shadow-white/20 px-8 h-14 text-base font-medium group overflow-hidden relative w-full sm:w-auto transition-all")}>
+                  Start Coding
+                  <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </Link>
+                <Link href="/dashboard" className={cn(buttonVariants({ size: "lg", variant: "outline" }), "rounded-full border-border bg-card text-card-foreground hover:bg-muted h-14 px-8 text-base font-medium overflow-hidden relative w-full sm:w-auto shadow-sm")}>
+                  Explore Problems
+                </Link>
+              </motion.div>
+            </motion.div>
+          </div>
+        </section>
 
       {/* 2. Black Features Section */}
       <section className="w-full bg-[#09090B] text-white py-32 px-6 relative overflow-hidden">
