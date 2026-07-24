@@ -180,6 +180,7 @@ export interface QuestionState {
   markSaved: () => void;
   getProgress: () => number;
   resetStore: () => void;
+  setAllData: (data: Partial<QuestionState>) => void;
 }
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -425,4 +426,5 @@ export const useQuestionStore = create<QuestionState>((set, get) => ({
   },
 
   resetStore: () => set({ ...initialState, metadata: { ...initialState.metadata, questionId: `QID-${Date.now().toString(36).toUpperCase()}` } }),
+  setAllData: (data) => set({ ...data }),
 }));

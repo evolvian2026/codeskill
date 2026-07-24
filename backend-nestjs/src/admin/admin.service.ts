@@ -7,6 +7,18 @@ import {
   ProblemMetadataDocument,
   ProblemMetadata,
 } from '../database/schemas/problem-metadata.schema';
+import {
+  ProblemStatementDocument,
+  ProblemStatement,
+} from '../database/schemas/problem-statement.schema';
+import {
+  ProblemConfigDocument,
+  ProblemConfig,
+} from '../database/schemas/problem-config.schema';
+import {
+  ProblemTestCaseDocument,
+  ProblemTestCase,
+} from '../database/schemas/problem-testcase.schema';
 import { ContestDocument, Contest } from '../database/schemas/contest.schema';
 import { CompanyDocument, Company } from '../database/schemas/company.schema';
 import {
@@ -24,6 +36,12 @@ export class AdminService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(ProblemMetadata.name)
     private problemModel: Model<ProblemMetadataDocument>,
+    @InjectModel(ProblemStatement.name)
+    private statementModel: Model<ProblemStatementDocument>,
+    @InjectModel(ProblemConfig.name)
+    private configModel: Model<ProblemConfigDocument>,
+    @InjectModel(ProblemTestCase.name)
+    private testCaseModel: Model<ProblemTestCaseDocument>,
     @InjectModel(Contest.name) private contestModel: Model<ContestDocument>,
     @InjectModel(Company.name) private companyModel: Model<CompanyDocument>,
     @InjectModel(University.name)
@@ -166,7 +184,12 @@ export class AdminService {
   }
 
   async getProblemById(id: string) {
-    const problem = await this.problemModel.findById(id).lean();
+    const problem = await this.problemModel
+      .findById(id)
+      .populate('statement')
+      .populate('config')
+      .populate('testCases')
+      .lean();
     if (!problem) throw new NotFoundException('Problem not found');
     return problem;
   }
@@ -175,6 +198,128 @@ export class AdminService {
     const problem = await this.problemModel.findByIdAndDelete(id);
     if (!problem) throw new NotFoundException('Problem not found');
     return { success: true, message: 'Problem deleted' };
+  }
+
+  async createProblem(payload: any, userId?: string) {
+    const {
+      metadata,
+      languages,
+      execution,
+      statement,
+      sampleExamples,
+      starterCode,
+      referenceSolution,
+      testCases,
+      customChecker,
+      publishing
+    } = payload;
+
+    const newProblem = new this.problemModel({
+      ...metadata,
+      visibility: publishing?.visibility || 'Draft',
+      author: userId || null,
+    });
+    
+    const newStatement = new this.statementModel({
+      metadataId: newProblem._id,
+      ...statement,
+      samples: sampleExamples || [],
+    });
+
+    const newConfig = new this.configModel({
+      metadataId: newProblem._id,
+      supportedLanguages: languages || [],
+      timeLimit: execution?.timeLimit || 2000,
+      memoryLimit: execution?.memoryLimit || 256,
+      cpuLimit: execution?.cpuLimit || 1,
+      starterCode: starterCode || {},
+      referenceSolution: referenceSolution || {},
+      hasCustomChecker: customChecker?.hasCustomChecker || false,
+      customCheckerCode: customChecker?.customCheckerCode || {},
+    });
+
+    const newTestCase = new this.testCaseModel({
+      metadataId: newProblem._id,
+      cases: testCases?.cases || [],
+    });
+
+    newProblem.statement = newStatement._id;
+    newProblem.config = newConfig._id;
+    newProblem.testCases = newTestCase._id;
+
+    await Promise.all([
+      newProblem.save(),
+      newStatement.save(),
+      newConfig.save(),
+      newTestCase.save(),
+    ]);
+
+    return { success: true, problem: newProblem };
+  }
+
+  async updateProblem(id: string, payload: any) {
+    const {
+      metadata,
+      languages,
+      execution,
+      statement,
+      sampleExamples,
+      starterCode,
+      referenceSolution,
+      testCases,
+      customChecker,
+      publishing
+    } = payload;
+
+    const problem = await this.problemModel.findById(id);
+    if (!problem) throw new NotFoundException('Problem not found');
+
+    if (metadata) {
+      Object.assign(problem, metadata);
+    }
+    if (publishing?.visibility) {
+      problem.visibility = publishing.visibility;
+    }
+    await problem.save();
+
+    if (statement || sampleExamples) {
+      const stmt = await this.statementModel.findOneAndUpdate(
+        { metadataId: id },
+        { $set: { ...statement, samples: sampleExamples || [] } },
+        { upsert: true, new: true }
+      );
+      problem.statement = stmt._id;
+    }
+
+    const configUpdate: any = {};
+    if (languages) configUpdate.supportedLanguages = languages;
+    if (execution?.timeLimit) configUpdate.timeLimit = execution.timeLimit;
+    if (execution?.memoryLimit) configUpdate.memoryLimit = execution.memoryLimit;
+    if (execution?.cpuLimit) configUpdate.cpuLimit = execution.cpuLimit;
+    if (starterCode) configUpdate.starterCode = starterCode;
+    if (referenceSolution) configUpdate.referenceSolution = referenceSolution;
+    if (customChecker?.hasCustomChecker !== undefined) configUpdate.hasCustomChecker = customChecker.hasCustomChecker;
+    if (customChecker?.customCheckerCode) configUpdate.customCheckerCode = customChecker.customCheckerCode;
+
+    const conf = await this.configModel.findOneAndUpdate(
+      { metadataId: id },
+      { $set: configUpdate },
+      { upsert: true, new: true }
+    );
+    problem.config = conf._id;
+
+    if (testCases?.cases) {
+      const tc = await this.testCaseModel.findOneAndUpdate(
+        { metadataId: id },
+        { $set: { cases: testCases.cases } },
+        { upsert: true, new: true }
+      );
+      problem.testCases = tc._id;
+    }
+
+    await problem.save();
+
+    return { success: true, problem };
   }
 
   // --- Companies ---

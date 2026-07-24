@@ -8,6 +8,7 @@ import {
   Body,
   Query,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -43,14 +44,14 @@ export class AdminProblemsController {
 
   @Post()
   @ApiOperation({ summary: 'Create a new problem' })
-  async createProblem(@Body() body: any) {
-    return { success: true, message: 'Problem created via Admin portal' };
+  async createProblem(@Body() body: any, @Req() req: any) {
+    return this.adminService.createProblem(body, req.user?._id);
   }
 
   @Put(':id')
   @ApiOperation({ summary: 'Update a problem' })
   async updateProblem(@Param('id') id: string, @Body() body: any) {
-    return { success: true, message: `Problem ${id} updated` };
+    return this.adminService.updateProblem(id, body);
   }
 
   @Delete(':id')
