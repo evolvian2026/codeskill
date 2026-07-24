@@ -317,16 +317,39 @@ async function runJava(code, testCases, runOpts) {
     fs.mkdirSync(tmpDir, { recursive: true });
     writeProjectFiles(tmpDir, runOpts.config);
 
-    const fullCode = `
+    const importMatches = code.match(/(^|\n)\s*import\s+[^;]+;/g) || [];
+    const customImports = importMatches.map(s => s.trim()).join('\n');
+    let cleanCode = code.replace(/(^|\n)\s*import\s+[^;]+;/g, '');
+
+    let fullCode = '';
+    if (cleanCode.includes('class Solution') || cleanCode.includes('class Main')) {
+      cleanCode = cleanCode.replace(/public\s+class\s+Main/, 'public class Solution').replace(/class\s+Main/, 'class Solution');
+      fullCode = `
 import java.util.*;
+import java.io.*;
+${customImports}
+
+${cleanCode}
+`;
+    } else {
+      let nums = [];
+      let target = 0;
+      if (tc.input && tc.input.nums) {
+        nums = tc.input.nums;
+        target = tc.input.target;
+      }
+      fullCode = `
+import java.util.*;
+import java.io.*;
+${customImports}
 
 public class Solution {
-    ${code}
+    ${cleanCode}
 
     public static void main(String[] args) {
         Solution sol = new Solution();
-        int[] nums = {${tc.input.nums.join(",")}};
-        int target = ${tc.input.target};
+        int[] nums = {${Array.isArray(nums) ? nums.join(',') : ''}};
+        int target = ${target || 0};
         int[] result = sol.twoSum(nums, target);
         StringBuilder sb = new StringBuilder("[");
         for (int i = 0; i < result.length; i++) {
@@ -338,6 +361,7 @@ public class Solution {
     }
 }
 `;
+    }
 
     const srcPath = path.join(tmpDir, "Solution.java");
     fs.writeFileSync(srcPath, fullCode);

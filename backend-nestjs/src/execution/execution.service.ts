@@ -446,11 +446,28 @@ int main() {
       fs.mkdirSync(tmpDir, { recursive: true });
       this.writeProjectFiles(tmpDir, runOpts.config);
 
-      const fullCode = `
+      const importMatches = code.match(/(^|\n)\s*import\s+[^;]+;/g) || [];
+      const customImports = importMatches.map(s => s.trim()).join('\n');
+      let cleanCode = code.replace(/(^|\n)\s*import\s+[^;]+;/g, '');
+
+      let fullCode = '';
+      if (cleanCode.includes('class Solution') || cleanCode.includes('class Main')) {
+        cleanCode = cleanCode.replace(/public\s+class\s+Main/, 'public class Solution').replace(/class\s+Main/, 'class Solution');
+        fullCode = `
 import java.util.*;
+import java.io.*;
+${customImports}
+
+${cleanCode}
+`;
+      } else {
+        fullCode = `
+import java.util.*;
+import java.io.*;
+${customImports}
 
 public class Solution {
-    ${code}
+    ${cleanCode}
 
     public static void main(String[] args) {
         Solution sol = new Solution();
@@ -467,6 +484,7 @@ public class Solution {
     }
 }
 `;
+      }
 
       const srcPath = path.join(tmpDir, 'Solution.java');
       fs.writeFileSync(srcPath, fullCode);
